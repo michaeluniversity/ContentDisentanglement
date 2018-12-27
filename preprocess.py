@@ -94,6 +94,22 @@ def preprocess_celeba(args):
             else:
                 allB.append(line[0])
 
+    if args.config == 'beard_glasses':
+        for line in lines[2:]:
+            line = line.split()
+            if male_no_5_oclock(line) and beard(line) and (not glasses(line)):
+                allA.append(line[0])
+            elif male_no_5_oclock(line) and (not beard(line)) and glasses(line):
+                allB.append(line[0])
+
+    if args.config == "hat_glasses":
+        for line in lines[2:]:
+            line = line.split()
+            if hat(line) and (not glasses(line)):
+                allA.append(line[0])
+            elif (not hat(line)) and glasses(line):
+                allB.append(line[0])
+
     testA = allA[:args.num_test_imgs]
     testB = allB[:args.num_test_imgs]
     trainA = allA[args.num_test_imgs:]
@@ -127,6 +143,18 @@ def preprocess_celeba(args):
             else:
                 f.write("%s\n" % os.path.join(args.root, _img))
 
+
+def male_no_5_oclock(line):
+    return int(line[21]) == 1 and int(line[1]) == -1
+
+def beard(line):
+    return int(line[23]) == 1 or int(line[17]) == 1 or int(line[25]) == -1
+
+def glasses(line):
+    return int(line[16]) == 1
+
+def hat(line):
+    return int(line[36]) == 1
 
 def preprocess_folders(args):
     if not os.path.exists(args.dest):

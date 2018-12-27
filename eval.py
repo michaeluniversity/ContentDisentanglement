@@ -1,26 +1,32 @@
 import argparse
 import os
 import torch
-from models import E1, E2, Decoder
+from models import E1, E2, E3, Decoder
 from utils import save_imgs, load_model_for_eval
 
 
 def eval(args):
     e1 = E1(args.sep, int((args.resize / 64)))
     e2 = E2(args.sep, int((args.resize / 64)))
+    e3 = E3(args.sep, int((args.resize / 64)))
     decoder = Decoder(int((args.resize / 64)))
+    zero_encoding = torch.full((args.bs, args.sep * (args.resize // 64) * (
+            args.resize // 64)), 0)
 
     if torch.cuda.is_available():
         e1 = e1.cuda()
         e2 = e2.cuda()
+        e3 = e3.cuda()
         decoder = decoder.cuda()
+        zero_encoding = zero_encoding.cuda()
 
     if args.load != '':
         save_file = os.path.join(args.load, 'checkpoint')
-        _iter = load_model_for_eval(save_file, e1, e2, decoder)
+        _iter = load_model_for_eval(save_file, e1, e2, e3, decoder)
 
     e1 = e1.eval()
     e2 = e2.eval()
+    e3 = e3.eval()
     decoder = decoder.eval()
 
     if not os.path.exists(args.out) and args.out != "":
