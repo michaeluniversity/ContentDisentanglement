@@ -6,7 +6,7 @@ from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
 
-from models import E1, E2, Decoder, Disc
+from models import E1, E2, E3, Decoder, Disc
 from utils import save_imgs, save_model, load_model
 from utils import CustomDataset
 
@@ -32,12 +32,14 @@ def train(args):
 
     A_label = torch.full((args.bs,), 1)
     B_label = torch.full((args.bs,), 0)
-    B_separate = torch.full((args.bs, args.sep * (args.resize // 64) * (args.resize // 64)), 0)
 
     e1 = E1(args.sep, args.resize // 64)
     e2 = E2(args.sep, args.resize // 64)
+    e3 = E3(args.sep, args.resize // 64)
     decoder = Decoder(args.resize // 64)
     disc = Disc(args.sep, args.resize // 64)
+    zero_encoding = torch.full((args.bs, args.sep * (args.resize // 64) * (
+            args.resize // 64)), 0)
 
     mse = nn.MSELoss()
     bce = nn.BCELoss()
@@ -45,17 +47,19 @@ def train(args):
     if torch.cuda.is_available():
         e1 = e1.cuda()
         e2 = e2.cuda()
+        e3 = e3.cuda()
         decoder = decoder.cuda()
         disc = disc.cuda()
+        zero_encoding = zero_encoding.cuda()
 
         A_label = A_label.cuda()
         B_label = B_label.cuda()
-        B_separate = B_separate.cuda()
 
         mse = mse.cuda()
         bce = bce.cuda()
 
-    ae_params = list(e1.parameters()) + list(e2.parameters()) + list(decoder.parameters())
+    ae_params = list(e1.parameters()) + list(e2.parameters()) + list(
+        e3.parameters()) + list(decoder.parameters())
     ae_optimizer = optim.Adam(ae_params, lr=args.lr, betas=(0.5, 0.999))
 
     disc_params = disc.parameters()
@@ -63,10 +67,12 @@ def train(args):
 
     if args.load != '':
         save_file = os.path.join(args.load, 'checkpoint')
-        _iter = load_model(save_file, e1, e2, decoder, ae_optimizer, disc, disc_optimizer)
+        _iter = load_model(save_file, e1, e2, e3, decoder, ae_optimizer, disc,
+                           disc_optimizer)
 
     e1 = e1.train()
     e2 = e2.train()
+    e3 = e3.train()
     decoder = decoder.train()
     disc = disc.train()
 
@@ -96,16 +102,21 @@ def train(args):
             ae_optimizer.zero_grad()
 
             A_common = e1(domA_img)
-            A_separate = e2(domA_img)
-            A_encoding = torch.cat([A_common, A_separate], dim=1)
-
+            A_separate_A = e2(domA_img)
+            A_separate_B = e3(domA_img)
+            A_encoding = torch.cat([A_common, A_separate_A, zero_encoding], dim=1)
             B_common = e1(domB_img)
-            B_encoding = torch.cat([B_common, B_separate], dim=1)
+            B_separate_A = e2(domB_img)
+            B_separate_B = e3(domB_img)
+            B_encoding = torch.cat([B_common, zero_encoding, B_separate_B], dim=1)
 
             A_decoding = decoder(A_encoding)
             B_decoding = decoder(B_encoding)
 
-            loss = mse(A_decoding, domA_img) + mse(B_decoding, domB_img)
+            # TODO: consider changing to L1 loss for reconstruction (sharper?)
+            loss = mse(A_decoding, domA_img) + mse(B_decoding, domB_img) + \
+                   mse(A_separate_B, zero_encoding) + \
+                   mse(B_separate_A, zero_encoding)
 
             if args.discweight > 0:
                 preds_A = disc(A_common)
@@ -137,17 +148,20 @@ def train(args):
             if _iter % args.display_iter == 0:
                 e1 = e1.eval()
                 e2 = e2.eval()
+                e3 = e3.eval()
                 decoder = decoder.eval()
 
                 save_imgs(args, e1, e2, decoder, _iter)
 
                 e1 = e1.train()
                 e2 = e2.train()
+                e3 = e3.train()
                 decoder = decoder.train()
 
             if _iter % args.save_iter == 0:
                 save_file = os.path.join(args.out, 'checkpoint')
-                save_model(save_file, e1, e2, decoder, ae_optimizer, disc, disc_optimizer, _iter)
+                save_model(save_file, e1, e2, e3, decoder, ae_optimizer, disc,
+                           disc_optimizer, _iter)
 
             _iter += 1
 
