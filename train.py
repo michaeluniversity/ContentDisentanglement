@@ -4,6 +4,7 @@ from torch import nn
 from torch import optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
+from torch.distributions import normal
 import torchvision.transforms as transforms
 
 from models import E1, E2, E3, Decoder, Disc
@@ -43,6 +44,7 @@ def train(args):
 
     mse = nn.MSELoss()
     bce = nn.BCELoss()
+    normaldist = normal.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
 
     if torch.cuda.is_available():
         e1 = e1.cuda()
@@ -113,15 +115,34 @@ def train(args):
             A_decoding = decoder(A_encoding)
             B_decoding = decoder(B_encoding)
 
-            # TODO: consider changing to L1 loss for reconstruction (sharper?)
             loss = mse(A_decoding, domA_img) + mse(B_decoding, domB_img) + \
-                   mse(A_separate_B, zero_encoding) + \
-                   mse(B_separate_A, zero_encoding)
+                   args.zeroweight * mse(A_separate_B, zero_encoding) + \
+                   args.zeroweight * mse(B_separate_A, zero_encoding)
 
             if args.discweight > 0:
                 preds_A = disc(A_common)
                 preds_B = disc(B_common)
                 loss += args.discweight * (bce(preds_A, B_label) + bce(preds_B, B_label))
+
+            if args.reconweight > 0:
+                normal_a = normaldist.sample(A_separate_A.size())\
+                    .view(args.bs, args.sep * (args.resize // 64) * (args.resize // 64))
+                normal_b = normaldist.sample(B_separate_B.size()) \
+                    .view(args.bs, args.sep * (args.resize // 64) * (args.resize // 64))
+                if torch.cuda.is_available():
+                    normal_a = normal_a.cuda()
+                    normal_b = normal_b.cuda()
+
+                A_from_normal = decoder(torch.cat([A_common, normal_a,
+                                              zero_encoding], dim=1))
+                A_recon = e2(A_from_normal.view((-1, 3, args.resize, args.resize)))
+                B_from_normal = decoder(torch.cat([B_common, zero_encoding,
+                                                   normal_b], dim=1))
+                B_recon = e3(B_from_normal.view((-1, 3, args.resize, args.resize)))
+
+                loss += args.reconweight * (
+                    mse(A_recon, normal_a) + mse(B_recon, normal_b)
+                )
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(ae_params, 5)
@@ -183,6 +204,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_iter', type=int, default=10000)
     parser.add_argument('--load', default='')
     parser.add_argument('--num_display', type=int, default=12)
+    parser.add_argument('--zeroweight', type=float, default=1.0)
+    parser.add_argument('--reconweight', type=float, default=0.01)
 
     args = parser.parse_args()
 
