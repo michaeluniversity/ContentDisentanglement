@@ -7,7 +7,7 @@ from torch.utils.data import DataLoader
 from torch.distributions import normal
 import torchvision.transforms as transforms
 
-from models import E1, E2, E3, Decoder, Disc
+from models import E1, E2, E3, Decoder, Disc, PatchDiscriminator
 from utils import save_imgs, save_model, load_model
 from utils import CustomDataset
 
@@ -41,6 +41,9 @@ def train(args):
     disc = Disc(args.sep, args.resize // 64)
     zero_encoding = torch.full((args.bs, args.sep * (args.resize // 64) * (
             args.resize // 64)), 0)
+    if args.imgdisc > 0:
+        domA_disc = PatchDiscriminator((args.resize, args.resize, 3))
+        domB_disc = PatchDiscriminator((args.resize, args.resize, 3))
 
     mse = nn.MSELoss()
     bce = nn.BCELoss()
@@ -53,6 +56,9 @@ def train(args):
         decoder = decoder.cuda()
         disc = disc.cuda()
         zero_encoding = zero_encoding.cuda()
+        if args.imgdisc > 0:
+            domA_disc = domA_disc.cuda()
+            domB_disc = domB_disc.cuda()
 
         A_label = A_label.cuda()
         B_label = B_label.cuda()
@@ -64,8 +70,18 @@ def train(args):
         e3.parameters()) + list(decoder.parameters())
     ae_optimizer = optim.Adam(ae_params, lr=args.lr, betas=(0.5, 0.999))
 
+
     disc_params = disc.parameters()
     disc_optimizer = optim.Adam(disc_params, lr=args.disclr, betas=(0.5, 0.999))
+
+    if args.imgdisc > 0:
+        imgdiscA_params = domA_disc.parameters()
+        imgdiscA_optimizer = optim.Adam(imgdiscA_params, lr=args.disclr,
+                                    betas=(0.5, 0.999))
+
+        imgdiscB_params = domB_disc.parameters()
+        imgdiscB_optimizer = optim.Adam(imgdiscB_params, lr=args.disclr,
+                                    betas=(0.5, 0.999))
 
     if args.load != '':
         save_file = os.path.join(args.load, 'checkpoint')
@@ -144,6 +160,19 @@ def train(args):
                     mse(A_recon, normal_a) + mse(B_recon, normal_b)
                 )
 
+            if args.imgdisc > 0:
+                AtoB = decoder(torch.cat([A_common, zero_encoding,
+                                          B_separate_B], dim=1))
+                BtoA = decoder(torch.cat([B_common, A_separate_A,
+                                          zero_encoding], dim=1))
+                discPredA = domA_disc(BtoA)
+                discPredB = domB_disc(AtoB)
+                ones = torch.ones(discPredA.size())
+                if torch.cuda.is_available():
+                    ones = ones.cuda()
+                loss += args.imgdisc * (bce(discPredA, ones) + bce(
+                    discPredB, ones))
+
             loss.backward()
             torch.nn.utils.clip_grad_norm_(ae_params, 5)
             ae_optimizer.step()
@@ -162,6 +191,38 @@ def train(args):
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(disc_params, 5)
                 disc_optimizer.step()
+
+            if args.imgdisc > 0:
+                A_common = e1(domA_img)
+                B_common = e1(domB_img)
+                A_separate_A = e2(domA_img)
+                B_separate_B = e3(domB_img)
+                AtoB = decoder(torch.cat([A_common, zero_encoding,
+                                          B_separate_B], dim=1))
+                BtoA = decoder(torch.cat([B_common, A_separate_A,
+                                          zero_encoding], dim=1))
+                discPredAFake = domA_disc(BtoA)
+                discPredBFake = domB_disc(AtoB)
+                discPredAReal = domA_disc(domA_img)
+                discPredBReal = domB_disc(domB_img)
+                ones = torch.ones(discPredAFake.size())
+                zeros = torch.ones(discPredAFake.size())
+                if torch.cuda.is_available():
+                    ones = ones.cuda()
+                    zeros = zeros.cuda()
+
+                loss_discA = bce(discPredAReal, ones) + bce(discPredAFake, zeros)
+                loss_discA.backward()
+                torch.nn.utils.clip_grad_norm_(imgdiscA_params, 5)
+                imgdiscA_optimizer.step()
+                imgdiscA_optimizer.zero_grad()
+
+                loss_discB = bce(discPredBReal, ones) + bce(discPredBFake, zeros)
+                loss_discB.backward()
+                torch.nn.utils.clip_grad_norm_(imgdiscB_params, 5)
+                imgdiscB_optimizer.step()
+                imgdiscB_optimizer.zero_grad()
+
 
             if _iter % args.progress_iter == 0:
                 print('Outfile: %s <<>> Iteration %d' % (args.out, _iter))
@@ -206,6 +267,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_display', type=int, default=12)
     parser.add_argument('--zeroweight', type=float, default=1.0)
     parser.add_argument('--reconweight', type=float, default=0.01)
+    parser.add_argument('--imgdisc', type=float, default=0.001)
 
     args = parser.parse_args()
 

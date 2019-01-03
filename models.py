@@ -148,3 +148,39 @@ class Disc(nn.Module):
         net = self.classify(net)
         net = net.view(-1)
         return net
+
+
+class PatchDiscriminator(nn.Module):
+    def __init__(self, img_sz):
+        super(PatchDiscriminator, self).__init__()
+
+        self.img_sz = img_sz
+        self.img_fm = 3
+        self.init_fm = 32
+        self.max_fm = 512
+        self.n_patch_dis_layers = 3
+
+        layers = []
+        layers.append(nn.Conv2d(self.img_fm, self.init_fm, kernel_size=4, stride=2, padding=1))
+        layers.append(nn.LeakyReLU(0.2, True))
+
+        n_in = self.init_fm
+        n_out = min(2 * n_in, self.max_fm)
+
+        for n in range(self.n_patch_dis_layers):
+            stride = 1 if n == self.n_patch_dis_layers - 1 else 2
+            layers.append(nn.Conv2d(n_in, n_out, kernel_size=4, stride=stride, padding=1))
+            layers.append(nn.BatchNorm2d(n_out))
+            layers.append(nn.LeakyReLU(0.2, inplace=True))
+            if n < self.n_patch_dis_layers - 1:
+                n_in = n_out
+                n_out = min(2 * n_out, self.max_fm)
+
+        layers.append(nn.Conv2d(n_out, 1, kernel_size=4, stride=1, padding=1))
+        layers.append(nn.Sigmoid())
+
+        self.layers = nn.Sequential(*layers)
+
+    def forward(self, x):
+        assert x.dim() == 4
+        return self.layers(x).view(x.size(0), -1).mean(1).view(x.size(0))
