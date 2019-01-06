@@ -233,7 +233,8 @@ def train(args):
                 e3 = e3.eval()
                 decoder = decoder.eval()
 
-                save_imgs(args, e1, e2, decoder, _iter)
+                save_imgs(args, e1, e2, e3, decoder, _iter, BtoA=True)
+                save_imgs(args, e1, e2, e3, decoder, _iter, BtoA=False)
 
                 e1 = e1.train()
                 e2 = e2.train()

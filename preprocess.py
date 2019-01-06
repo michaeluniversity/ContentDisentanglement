@@ -110,6 +110,14 @@ def preprocess_celeba(args):
             elif (not hat(line)) and glasses(line):
                 allB.append(line[0])
 
+    if args.config == "smile_glasses":
+        for line in lines[2:]:
+            line = line.split()
+            if smile(line) and (not glasses(line)):
+                allA.append(line[0])
+            elif (not smile(line)) and glasses(line):
+                allB.append(line[0])
+
     testA = allA[:args.num_test_imgs]
     testB = allB[:args.num_test_imgs]
     trainA = allA[args.num_test_imgs:]
@@ -155,6 +163,9 @@ def glasses(line):
 
 def hat(line):
     return int(line[36]) == 1
+
+def smile(line):
+    return int(line[32]) == 1
 
 def preprocess_folders(args):
     if not os.path.exists(args.dest):
