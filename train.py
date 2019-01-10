@@ -8,7 +8,7 @@ from torch.distributions import normal
 import torchvision.transforms as transforms
 
 from models import E1, E2, E3, Decoder, Disc, PatchDiscriminator
-from utils import save_imgs, save_model, load_model
+from utils import save_imgs, save_model, load_model, save_stripped_imgs
 from utils import CustomDataset
 
 import argparse
@@ -235,6 +235,8 @@ def train(args):
 
                 save_imgs(args, e1, e2, e3, decoder, _iter, BtoA=True)
                 save_imgs(args, e1, e2, e3, decoder, _iter, BtoA=False)
+                save_stripped_imgs(args, e1, e2, e3, decoder, _iter, A=True)
+                save_stripped_imgs(args, e1, e2, e3, decoder, _iter, A=False)
 
                 e1 = e1.train()
                 e2 = e2.train()

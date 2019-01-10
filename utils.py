@@ -12,7 +12,7 @@ from PIL import Image
 
 
 def save_imgs(args, e1, e2, e3, decoder, iters, BtoA=True):
-    ''' saves images of translation B -> A '''
+    ''' saves images of translation B -> A or A -> B'''
     test_domA, test_domB = get_test_imgs(args)
     exps = []
 
@@ -70,6 +70,43 @@ def save_imgs(args, e1, e2, e3, decoder, iters, BtoA=True):
         vutils.save_image(exps,
                           '%s/experiments_%06d-AtoB.png' % (args.out, iters),
                           normalize=True, nrow=args.num_display + 1)
+
+
+def save_stripped_imgs(args, e1, e2, e3, decoder, iters, A=True):
+    test_domA, test_domB = get_test_imgs(args)
+    exps = []
+    zero_encoding = torch.full((1, args.sep * (args.resize //
+                                               64) * (args.resize // 64)), 0)
+    if torch.cuda.is_available():
+        zero_encoding = zero_encoding.cuda()
+
+    for i in range(args.num_display):
+        if A:
+            image = test_domA[i]
+        else:
+            image = test_domB[i]
+        exps.append(image.unsqueeze(0))
+        common = e1(image.unsqueeze(0))
+        content_zero_encoding = torch.full(common.size(), 0)
+        if torch.cuda.is_available():
+            content_zero_encoding = content_zero_encoding.cuda()
+        separate_A = e2(image.unsqueeze(0))
+        separate_B = e3(image.unsqueeze(0))
+        exps.append(decoder(torch.cat([common, zero_encoding, zero_encoding], dim=1)))
+        exps.append(decoder(torch.cat([content_zero_encoding, separate_A, zero_encoding], dim=1)))
+        exps.append(decoder(torch.cat([content_zero_encoding, zero_encoding, separate_B], dim=1)))
+
+    with torch.no_grad():
+        exps = torch.cat(exps, 0)
+
+    if A:
+        vutils.save_image(exps,
+                          '%s/experiments_%06d-Astripped.png' % (args.out, iters),
+                          normalize=True, nrow=args.num_display)
+    else:
+        vutils.save_image(exps,
+                          '%s/experiments_%06d-Bstripped.png' % (args.out, iters),
+                          normalize=True, nrow=args.num_display)
 
 
 def interpolate(args, e1, e2, decoder):
