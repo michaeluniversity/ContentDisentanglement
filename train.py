@@ -133,9 +133,22 @@ def train(args):
             A_decoding = decoder(A_encoding)
             B_decoding = decoder(B_encoding)
 
+            A_common_decoding = decoder(torch.cat([A_common, zero_encoding,
+                                                   B_separate_B], dim=1))
+            B_common_decoding = decoder(torch.cat([B_common, zero_encoding,
+                                                   B_separate_B], dim=1))
+            A_common_separate_A = e2(A_common_decoding)
+            A_common_separate_B = e3(A_common_decoding)
+            B_common_separate_A = e2(B_common_decoding)
+            B_common_separate_B = e3(B_common_decoding)
+
             loss = l1(A_decoding, domA_img) + l1(B_decoding, domB_img) + \
-                   args.zeroweight * mse(A_separate_B, zero_encoding) + \
-                   args.zeroweight * mse(B_separate_A, zero_encoding)
+                   args.zeroweight * (mse(A_separate_B, zero_encoding) +
+                                      mse(B_separate_A, zero_encoding) +
+                                      mse(A_common_separate_A, zero_encoding) +
+                                      mse(A_common_separate_B, zero_encoding) +
+                                      mse(B_common_separate_A, zero_encoding) +
+                                      mse(B_common_separate_B, zero_encoding))
 
             if args.discweight > 0:
                 preds_A = disc(A_common)
