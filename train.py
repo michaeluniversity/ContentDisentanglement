@@ -45,6 +45,7 @@ def train(args):
         domA_disc = PatchDiscriminator((args.resize, args.resize, 3))
         domB_disc = PatchDiscriminator((args.resize, args.resize, 3))
 
+    l1 = nn.L1Loss()
     mse = nn.MSELoss()
     bce = nn.BCELoss()
     normaldist = normal.Normal(torch.tensor([0.0]), torch.tensor([1.0]))
@@ -63,6 +64,7 @@ def train(args):
         A_label = A_label.cuda()
         B_label = B_label.cuda()
 
+        l1 = l1.cuda()
         mse = mse.cuda()
         bce = bce.cuda()
 
@@ -131,7 +133,7 @@ def train(args):
             A_decoding = decoder(A_encoding)
             B_decoding = decoder(B_encoding)
 
-            loss = mse(A_decoding, domA_img) + mse(B_decoding, domB_img) + \
+            loss = l1(A_decoding, domA_img) + l1(B_decoding, domB_img) + \
                    args.zeroweight * mse(A_separate_B, zero_encoding) + \
                    args.zeroweight * mse(B_separate_A, zero_encoding)
 
