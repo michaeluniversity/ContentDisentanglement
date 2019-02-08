@@ -1,4 +1,5 @@
 import torch.nn as nn
+from spectral import SpectralNorm
 
 class E1(nn.Module):
     def __init__(self, sep, size):
@@ -7,19 +8,19 @@ class E1(nn.Module):
         self.size = size
 
         self.full = nn.Sequential(
-            nn.Conv2d(3, 32, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(3, 32, 4, 2, 1)),
             nn.InstanceNorm2d(32),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(32, 64, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(32, 64, 4, 2, 1)),
             nn.InstanceNorm2d(64),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(64, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 256, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(128, 256, 4, 2, 1)),
             nn.InstanceNorm2d(256),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(256, (512 - self.sep), 4, 2, 1),
+            SpectralNorm(nn.Conv2d(256, (512 - self.sep), 4, 2, 1)),
             nn.InstanceNorm2d(512 - self.sep),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d((512 - self.sep), (512 - 2 * self.sep), 4, 2, 1),
@@ -40,19 +41,19 @@ class E2(nn.Module):
         self.size = size
 
         self.full = nn.Sequential(
-            nn.Conv2d(3, 32, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(3, 32, 4, 2, 1)),
             nn.InstanceNorm2d(32),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(32, 64, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(32, 64, 4, 2, 1)),
             nn.InstanceNorm2d(64),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(64, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(128, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(128, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(128, self.sep, 4, 2, 1),
@@ -73,19 +74,19 @@ class E3(nn.Module):
         self.size = size
 
         self.full = nn.Sequential(
-            nn.Conv2d(3, 32, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(3, 32, 4, 2, 1)),
             nn.InstanceNorm2d(32),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(32, 64, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(32, 64, 4, 2, 1)),
             nn.InstanceNorm2d(64),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(64, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(64, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(128, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
-            nn.Conv2d(128, 128, 4, 2, 1),
+            SpectralNorm(nn.Conv2d(128, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(128, self.sep, 4, 2, 1),
@@ -105,19 +106,19 @@ class Decoder(nn.Module):
         self.size = size
 
         self.main = nn.Sequential(
-            nn.ConvTranspose2d(512, 512, 4, 2, 1),
+            SpectralNorm(nn.ConvTranspose2d(512, 512, 4, 2, 1)),
             nn.InstanceNorm2d(512),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(512, 256, 4, 2, 1),
+            SpectralNorm(nn.ConvTranspose2d(512, 256, 4, 2, 1)),
             nn.InstanceNorm2d(256),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(256, 128, 4, 2, 1),
+            SpectralNorm(nn.ConvTranspose2d(256, 128, 4, 2, 1)),
             nn.InstanceNorm2d(128),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(128, 64, 4, 2, 1),
+            SpectralNorm(nn.ConvTranspose2d(128, 64, 4, 2, 1)),
             nn.InstanceNorm2d(64),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(64, 32, 4, 2, 1),
+            SpectralNorm(nn.ConvTranspose2d(64, 32, 4, 2, 1)),
             nn.InstanceNorm2d(32),
             nn.ReLU(inplace=True),
             nn.ConvTranspose2d(32, 3, 4, 2, 1),
