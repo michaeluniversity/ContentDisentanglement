@@ -5,6 +5,7 @@ from torch import optim
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from torch.distributions import normal
+from utils import Logger
 import torchvision.transforms as transforms
 
 from models import E1, E2, E3, Decoder, Disc, PatchDiscriminator
@@ -96,6 +97,8 @@ def train(args):
     decoder = decoder.train()
     disc = disc.train()
 
+    logger = Logger(args.out)
+
     print('Started training...')
     while True:
         domA_loader = torch.utils.data.DataLoader(domA_train, batch_size=args.bs,
@@ -142,18 +145,35 @@ def train(args):
             B_common_separate_A = e2(B_common_decoding)
             B_common_separate_B = e3(B_common_decoding)
 
-            loss = l1(A_decoding, domA_img) + l1(B_decoding, domB_img) + \
-                   args.zeroweight * (mse(A_separate_B, zero_encoding) +
-                                      mse(B_separate_A, zero_encoding) +
-                                      mse(A_common_separate_A, zero_encoding) +
-                                      mse(A_common_separate_B, zero_encoding) +
-                                      mse(B_common_separate_A, zero_encoding) +
-                                      mse(B_common_separate_B, zero_encoding))
+            A_reconstruction_loss = l1(A_decoding, domA_img)
+            B_reconstruction_loss = l1(B_decoding, domB_img)
+            A_separate_B_loss = mse(A_separate_B, zero_encoding)
+            B_separate_A_loss = mse(B_separate_A, zero_encoding)
+            A_common_separates_loss = mse(A_common_separate_A, zero_encoding) + \
+                                      mse(A_common_separate_B, zero_encoding)
+            B_common_separates_loss = mse(B_common_separate_A, zero_encoding) + \
+                                      mse(B_common_separate_B, zero_encoding)
+
+            logger.add_value('A_recon', A_reconstruction_loss)
+            logger.add_value('B_recon', B_reconstruction_loss)
+            logger.add_value('A_sep_B', A_separate_B_loss)
+            logger.add_value('B_sep_A', B_separate_A_loss)
+            logger.add_value('A_common_sep', A_common_separates_loss)
+            logger.add_value('B_common_sep', B_common_separates_loss)
+
+            loss = A_reconstruction_loss + B_reconstruction_loss + \
+                   args.zeroweight * (A_separate_B_loss +
+                                      B_separate_A_loss +
+                                      A_common_separates_loss +
+                                      B_common_separates_loss)
 
             if args.discweight > 0:
                 preds_A = disc(A_common)
                 preds_B = disc(B_common)
-                loss += args.discweight * (bce(preds_A, B_label) + bce(preds_B, B_label))
+                distribution_adverserial_loss = args.discweight *\
+                                                (bce(preds_A, B_label) + bce(preds_B, B_label))
+                logger.add_value('distribution_adverserial', distribution_adverserial_loss)
+                loss += distribution_adverserial_loss
 
             if args.reconweight > 0:
                 normal_a = normaldist.sample(A_separate_A.size())\
@@ -171,9 +191,9 @@ def train(args):
                                                    normal_b], dim=1))
                 B_recon = e3(B_from_normal.view((-1, 3, args.resize, args.resize)))
 
-                loss += args.reconweight * (
-                    mse(A_recon, normal_a) + mse(B_recon, normal_b)
-                )
+                content_recon_loss = mse(A_recon, normal_a) + mse(B_recon, normal_b)
+                logger.add_value('content_recon', content_recon_loss)
+                loss += args.reconweight * content_recon_loss
 
             if args.imgdisc > 0:
                 AtoB = decoder(torch.cat([A_common, zero_encoding,
@@ -185,8 +205,10 @@ def train(args):
                 ones = torch.ones(discPredA.size())
                 if torch.cuda.is_available():
                     ones = ones.cuda()
-                loss += args.imgdisc * (bce(discPredA, ones) + bce(
-                    discPredB, ones))
+
+                image_adversarial_loss = bce(discPredA, ones) + bce(discPredB, ones)
+                logger.add_value('img_adversarial', image_adversarial_loss)
+                loss += args.imgdisc * image_adversarial_loss
 
             loss.backward()
             torch.nn.utils.clip_grad_norm_(ae_params, 5)
@@ -202,7 +224,7 @@ def train(args):
                 disc_B = disc(B_common)
 
                 loss = bce(disc_A, A_label) + bce(disc_B, B_label)
-
+                logger.add_value('dist_disc', loss)
                 loss.backward()
                 torch.nn.utils.clip_grad_norm_(disc_params, 5)
                 disc_optimizer.step()
@@ -227,12 +249,14 @@ def train(args):
                     zeros = zeros.cuda()
 
                 loss_discA = bce(discPredAReal, ones) + bce(discPredAFake, zeros)
+                logger.add_value('img_disc_A', loss_discA)
                 loss_discA.backward()
                 torch.nn.utils.clip_grad_norm_(imgdiscA_params, 5)
                 imgdiscA_optimizer.step()
                 imgdiscA_optimizer.zero_grad()
 
                 loss_discB = bce(discPredBReal, ones) + bce(discPredBFake, zeros)
+                logger.add_value('img_disc_B', loss_discB)
                 loss_discB.backward()
                 torch.nn.utils.clip_grad_norm_(imgdiscB_params, 5)
                 imgdiscB_optimizer.step()
@@ -241,6 +265,11 @@ def train(args):
 
             if _iter % args.progress_iter == 0:
                 print('Outfile: %s <<>> Iteration %d' % (args.out, _iter))
+
+            if _iter % args.log_iter == 0:
+                logger.log(_iter)
+
+            logger.reset()
 
             if _iter % args.display_iter == 0:
                 e1 = e1.eval()
@@ -280,6 +309,7 @@ if __name__ == '__main__':
     parser.add_argument('--disclr', type=float, default=0.0002)
     parser.add_argument('--progress_iter', type=int, default=100)
     parser.add_argument('--display_iter', type=int, default=5000)
+    parser.add_argument('--log_iter', type=int, default=100)
     parser.add_argument('--save_iter', type=int, default=10000)
     parser.add_argument('--load', default='')
     parser.add_argument('--num_display', type=int, default=12)

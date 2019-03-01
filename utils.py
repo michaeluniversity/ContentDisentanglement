@@ -218,6 +218,28 @@ def default_loader(path):
     return Image.open(path).convert('RGB')
 
 
+class Logger():
+    def __init__(self, path):
+        self.full_path = '%s/log.txt' % path
+        self.log_file = open(self.full_path, 'a+')
+        self.log_file.close()
+        self.map = {}
+
+    def add_value(self, tag, value):
+        self.map[tag] = value
+
+    def log(self, iter):
+        self.log_file = open(self.full_path, 'a')
+        self.log_file.write('iter: %7d' % iter)
+        for k,v in self.map.items():
+            self.log_file.write('\t %s: %.7f' % (k, v))
+        self.log_file.write('\n')
+        self.log_file.close()
+
+    def reset(self):
+        self.map = {}
+
+
 class CustomDataset(data.Dataset):
     def __init__(self, path, transform=None, return_paths=False,
                  loader=default_loader):
