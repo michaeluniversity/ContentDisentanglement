@@ -8,7 +8,7 @@ from torch.distributions import normal
 from utils import Logger
 import torchvision.transforms as transforms
 
-from models import E1, E2, E3, Decoder, Disc, PatchDiscriminator
+from models import E1, E2, E3, Decoder, Disc, PatchDiscriminator, MsImageDis
 from utils import save_imgs, save_model, load_model, save_stripped_imgs
 from utils import CustomDataset
 
@@ -43,8 +43,8 @@ def train(args):
     zero_encoding = torch.full((args.bs, args.sep * (args.resize // 64) * (
             args.resize // 64)), 0)
     if args.imgdisc > 0:
-        domA_disc = PatchDiscriminator((args.resize, args.resize, 3))
-        domB_disc = PatchDiscriminator((args.resize, args.resize, 3))
+        domA_disc = MsImageDis(3)
+        domB_disc = MsImageDis(3)
 
     l1 = nn.L1Loss()
     mse = nn.MSELoss()
@@ -200,13 +200,9 @@ def train(args):
                                           B_separate_B], dim=1))
                 BtoA = decoder(torch.cat([B_common, A_separate_A,
                                           zero_encoding], dim=1))
-                discPredA = domA_disc(BtoA)
-                discPredB = domB_disc(AtoB)
-                ones = torch.ones(discPredA.size())
-                if torch.cuda.is_available():
-                    ones = ones.cuda()
 
-                image_adversarial_loss = bce(discPredA, ones) + bce(discPredB, ones)
+                image_adversarial_loss = domA_disc.calc_gen_loss(BtoA) + \
+                                         domB_disc.calc_gen_loss(AtoB)
                 logger.add_value('img_adversarial', image_adversarial_loss)
                 loss += args.imgdisc * image_adversarial_loss
 
@@ -238,24 +234,15 @@ def train(args):
                                           B_separate_B], dim=1))
                 BtoA = decoder(torch.cat([B_common, A_separate_A,
                                           zero_encoding], dim=1))
-                discPredAFake = domA_disc(BtoA)
-                discPredBFake = domB_disc(AtoB)
-                discPredAReal = domA_disc(domA_img)
-                discPredBReal = domB_disc(domB_img)
-                ones = torch.ones(discPredAFake.size())
-                zeros = torch.ones(discPredAFake.size())
-                if torch.cuda.is_available():
-                    ones = ones.cuda()
-                    zeros = zeros.cuda()
 
-                loss_discA = bce(discPredAReal, ones) + bce(discPredAFake, zeros)
+                loss_discA = domA_disc.calc_dis_loss(BtoA, domA_img)
                 logger.add_value('img_disc_A', loss_discA)
                 loss_discA.backward()
                 torch.nn.utils.clip_grad_norm_(imgdiscA_params, 5)
                 imgdiscA_optimizer.step()
                 imgdiscA_optimizer.zero_grad()
 
-                loss_discB = bce(discPredBReal, ones) + bce(discPredBFake, zeros)
+                loss_discB = domB_disc.calc_dis_loss(AtoB, domB_img)
                 logger.add_value('img_disc_B', loss_discB)
                 loss_discB.backward()
                 torch.nn.utils.clip_grad_norm_(imgdiscB_params, 5)

@@ -221,7 +221,7 @@ def default_loader(path):
 class Logger():
     def __init__(self, path):
         self.full_path = '%s/log.txt' % path
-        self.log_file = open(self.full_path, 'a+')
+        self.log_file = open(self.full_path, 'w+')
         self.log_file.close()
         self.map = {}
 
@@ -232,7 +232,7 @@ class Logger():
         self.log_file = open(self.full_path, 'a')
         self.log_file.write('iter: %7d' % iter)
         for k,v in self.map.items():
-            self.log_file.write('\t %s: %.7f' % (k, v))
+            self.log_file.write('\t %s: %10.7f' % (k, v))
         self.log_file.write('\n')
         self.log_file.close()
 
