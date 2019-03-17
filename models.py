@@ -141,14 +141,14 @@ class Disc(nn.Module):
         self.size = size
 
         self.classify = nn.Sequential(
-            nn.Linear((512 - 2 * self.sep) * self.size * self.size, 512),
+            nn.Linear(20480, 512),
             nn.LeakyReLU(0.2, inplace=True),
             nn.Linear(512, 1),
             nn.Sigmoid()
         )
 
     def forward(self, net):
-        net = net.view(-1, (512 - 2 * self.sep) * self.size * self.size)
+        net = net.view(-1, 20480)
         net = self.classify(net)
         net = net.view(-1)
         return net
