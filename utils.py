@@ -34,7 +34,8 @@ def save_imgs(args, e1, e2, e3, decoder, iters, BtoA=True):
             for j in range(args.num_display):
                 with torch.no_grad():
                     common_B = e1(test_domB[j].unsqueeze(0))
-                    zero_encoding = torch.full((1, 128, 8, 8), 0)
+                    zero_encoding = torch.full((1, args.sep * (args.resize
+                                                               // 64) * ( args.resize // 64)), 0)
                     if torch.cuda.is_available():
                         zero_encoding = zero_encoding.cuda()
 
@@ -48,7 +49,8 @@ def save_imgs(args, e1, e2, e3, decoder, iters, BtoA=True):
             for j in range(args.num_display):
                 with torch.no_grad():
                     common_A = e1(test_domA[j].unsqueeze(0))
-                    zero_encoding = torch.full((1, 128, 8, 8), 0)
+                    zero_encoding = torch.full((1, args.sep * (args.resize
+                                                               // 64) * ( args.resize // 64)), 0)
                     if torch.cuda.is_available():
                         zero_encoding = zero_encoding.cuda()
 
@@ -73,7 +75,8 @@ def save_imgs(args, e1, e2, e3, decoder, iters, BtoA=True):
 def save_stripped_imgs(args, e1, e2, e3, decoder, iters, A=True):
     test_domA, test_domB = get_test_imgs(args)
     exps = []
-    zero_encoding = torch.full((1, 128, 8, 8), 0)
+    zero_encoding = torch.full((1, args.sep * (args.resize // 64) * (
+            args.resize // 64)), 0)
     if torch.cuda.is_available():
         zero_encoding = zero_encoding.cuda()
 

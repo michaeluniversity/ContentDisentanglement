@@ -118,6 +118,30 @@ def preprocess_celeba(args):
             elif (not smile(line)) and glasses(line):
                 allB.append(line[0])
 
+    if args.config == "male_female":
+        for line in lines[2:]:
+            line = line.split()
+            if int(line[21]) == 1:
+                allA.append(line[0])
+            else:
+                allB.append(line[0])
+
+    if args.config == "bald_hair":
+        for line in lines[2:]:
+            line = line.split()
+            if bald(line) and (not hat(line)):
+                allA.append(line[0])
+            elif (not bald(line)) and (not hat(line)):
+                allB.append(line[0])
+
+    if args.config == "blonde_black":
+        for line in lines[2:]:
+            line = line.split()
+            if blonde_hair(line) and (not hat(line)):
+                allA.append(line[0])
+            elif black_hair(line) and (not hat(line)):
+                allB.append(line[0])
+
     testA = allA[:args.num_test_imgs]
     testB = allB[:args.num_test_imgs]
     trainA = allA[args.num_test_imgs:]
@@ -166,6 +190,15 @@ def hat(line):
 
 def smile(line):
     return int(line[32]) == 1
+
+def bald(line):
+    return int(line[5]) == 1
+
+def blonde_hair(line):
+    return int(line[10]) == 1
+
+def black_hair(line):
+    return int(line[9]) == 1
 
 def preprocess_folders(args):
     if not os.path.exists(args.dest):

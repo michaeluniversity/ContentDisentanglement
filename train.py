@@ -35,15 +35,16 @@ def train(args):
     A_label = torch.full((args.bs,), 1)
     B_label = torch.full((args.bs,), 0)
 
-    e1 = ContentEncoder(4, 4, 3, 20, 'in', 'relu', 'reflect')
-    e2 = ContentEncoder(4, 4, 3, 8, 'in', 'relu', 'reflect')
-    e3 = ContentEncoder(4, 4, 3, 8, 'in', 'relu', 'reflect')
-    decoder = MunitDecoder(4, 4, 576, 3, pad_type='reflect')
+    e1 = E1(args.sep, args.resize // 64)
+    e2 = E2(args.sep, args.resize // 64)
+    e3 = E3(args.sep, args.resize // 64)
+    decoder = Decoder(args.resize // 64)
     disc = Disc(args.sep, args.resize // 64)
-    zero_encoding = torch.full((args.bs, 128, 8, 8), 0)
+    zero_encoding = torch.full((args.bs, args.sep * (args.resize // 64) * (
+            args.resize // 64)), 0)
     if args.imgdisc > 0:
-        domA_disc = MsImageDis(3)
-        domB_disc = MsImageDis(3)
+        domA_disc = PatchDiscriminator((args.resize, args.resize, 3))
+        domB_disc = PatchDiscriminator((args.resize, args.resize, 3))
 
     l1 = nn.L1Loss()
     mse = nn.MSELoss()
@@ -175,8 +176,10 @@ def train(args):
                 loss += distribution_adverserial_loss
 
             if args.reconweight > 0:
-                normal_a = normaldist.sample(A_separate_A.size())
-                normal_b = normaldist.sample(B_separate_B.size())
+                normal_a = normaldist.sample(A_separate_A.size())\
+                    .view(args.bs, args.sep * (args.resize // 64) * (args.resize // 64))
+                normal_b = normaldist.sample(B_separate_B.size())\
+                    .view(args.bs, args.sep * (args.resize // 64) * (args.resize // 64))
                 if torch.cuda.is_available():
                     normal_a = normal_a.cuda()
                     normal_b = normal_b.cuda()
@@ -198,8 +201,13 @@ def train(args):
                 BtoA = decoder(torch.cat([B_common, A_separate_A,
                                           zero_encoding], dim=1))
 
-                image_adversarial_loss = domA_disc.calc_gen_loss(BtoA) + \
-                                         domB_disc.calc_gen_loss(AtoB)
+                discPredA = domA_disc(BtoA)
+                discPredB = domB_disc(AtoB)
+                ones = torch.ones(discPredA.size())
+                if torch.cuda.is_available():
+                    ones = ones.cuda()
+
+                image_adversarial_loss = bce(discPredA, ones) + bce(discPredB, ones)
                 logger.add_value('img_adversarial', image_adversarial_loss)
                 loss += args.imgdisc * image_adversarial_loss
 
@@ -232,14 +240,24 @@ def train(args):
                 BtoA = decoder(torch.cat([B_common, A_separate_A,
                                           zero_encoding], dim=1))
 
-                loss_discA = domA_disc.calc_dis_loss(BtoA, domA_img)
+                discPredAFake = domA_disc(BtoA)
+                discPredBFake = domB_disc(AtoB)
+                discPredAReal = domA_disc(domA_img)
+                discPredBReal = domB_disc(domB_img)
+                ones = torch.ones(discPredAFake.size())
+                zeros = torch.ones(discPredAFake.size())
+                if torch.cuda.is_available():
+                    ones = ones.cuda()
+                    zeros = zeros.cuda()
+
+                loss_discA = bce(discPredAReal, ones) + bce(discPredAFake, zeros)
                 logger.add_value('img_disc_A', loss_discA)
                 loss_discA.backward()
                 torch.nn.utils.clip_grad_norm_(imgdiscA_params, 5)
                 imgdiscA_optimizer.step()
                 imgdiscA_optimizer.zero_grad()
 
-                loss_discB = domB_disc.calc_dis_loss(AtoB, domB_img)
+                loss_discB = bce(discPredBReal, ones) + bce(discPredBFake, zeros)
                 logger.add_value('img_disc_B', loss_discB)
                 loss_discB.backward()
                 torch.nn.utils.clip_grad_norm_(imgdiscB_params, 5)
@@ -284,7 +302,7 @@ if __name__ == '__main__':
     parser.add_argument('--root', default='')
     parser.add_argument('--out', default='out')
     parser.add_argument('--lr', type=float, default=0.0002)
-    parser.add_argument('--bs', type=int, default=8)
+    parser.add_argument('--bs', type=int, default=128)
     parser.add_argument('--iters', type=int, default=1250000)
     parser.add_argument('--resize', type=int, default=128)
     parser.add_argument('--crop', type=int, default=178)
