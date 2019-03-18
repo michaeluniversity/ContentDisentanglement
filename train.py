@@ -89,7 +89,8 @@ def train(args):
     if args.load != '':
         save_file = os.path.join(args.load, 'checkpoint')
         _iter = load_model(save_file, e1, e2, e3, decoder, ae_optimizer, disc,
-                           disc_optimizer)
+                           disc_optimizer, domA_disc, imgdiscA_optimizer,
+                           domB_disc, imgdiscB_optimizer, args.img_disc)
 
     e1 = e1.train()
     e2 = e2.train()
@@ -292,7 +293,8 @@ def train(args):
             if _iter % args.save_iter == 0:
                 save_file = os.path.join(args.out, 'checkpoint')
                 save_model(save_file, e1, e2, e3, decoder, ae_optimizer, disc,
-                           disc_optimizer, _iter)
+                           disc_optimizer, domA_disc, imgdiscA_optimizer,
+                           domB_disc, imgdiscB_optimizer, _iter, args.imgdisc)
 
             _iter += 1
 
