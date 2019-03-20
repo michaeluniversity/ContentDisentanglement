@@ -77,6 +77,67 @@ def save_imgs(args, e1, e2, e3, decoder, iters, BtoA=True, num_offsets=1):
                               normalize=True, nrow=args.num_display + 1)
 
 
+def save_chosen_imgs(args, e1, e2, e3, decoder, iters, listA, listB, BtoA=True):
+    ''' saves images of translation B -> A or A -> B'''
+    test_domA, test_domB = get_test_imgs(args)
+
+    exps = []
+    for i in range(args.num_display):
+        with torch.no_grad():
+            if i == 0:
+                filler = test_domB[i].unsqueeze(0).clone()
+                exps.append(filler.fill_(0))
+
+            if BtoA:
+                exps.append(test_domB[listB[i]].unsqueeze(0))
+            else:
+                exps.append(test_domA[listA[i]].unsqueeze(0))
+
+    if BtoA:
+        for i in listA:
+            exps.append(test_domA[i].unsqueeze(0))
+            separate_A = e2(test_domA[i].unsqueeze(0))
+            for j in listB:
+                with torch.no_grad():
+                    common_B = e1(test_domB[j].unsqueeze(0))
+                    zero_encoding = torch.full((1, args.sep * (args.resize
+                                                               // 64) * ( args.resize // 64)), 0)
+                    if torch.cuda.is_available():
+                        zero_encoding = zero_encoding.cuda()
+
+                    BA_encoding = torch.cat([common_B, separate_A, zero_encoding], dim=1)
+                    BA_decoding = decoder(BA_encoding)
+                    exps.append(BA_decoding)
+    else:
+        for i in listB:
+            exps.append(test_domB[i].unsqueeze(0))
+            separate_B = e3(test_domB[i].unsqueeze(0))
+            for j in listA:
+                with torch.no_grad():
+                    common_A = e1(test_domA[j].unsqueeze(0))
+                    zero_encoding = torch.full((1, args.sep * (args.resize
+                                                               // 64) * ( args.resize // 64)), 0)
+                    if torch.cuda.is_available():
+                        zero_encoding = zero_encoding.cuda()
+
+                    AB_encoding = torch.cat(
+                        [common_A, zero_encoding, separate_B], dim=1)
+                    AB_decoding = decoder(AB_encoding)
+                    exps.append(AB_decoding)
+
+    with torch.no_grad():
+        exps = torch.cat(exps, 0)
+
+    if BtoA:
+        vutils.save_image(exps,
+                          '%s/experiments_%06d-BtoA.png' % (args.out,iters),
+                          normalize=True, nrow=args.num_display + 1)
+    else:
+        vutils.save_image(exps,
+                          '%s/experiments_%06d-AtoB.png' % (args.out,iters),
+                          normalize=True, nrow=args.num_display + 1)
+
+
 def save_stripped_imgs(args, e1, e2, e3, decoder, iters, A=True):
     test_domA, test_domB = get_test_imgs(args)
     exps = []

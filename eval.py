@@ -2,7 +2,7 @@ import argparse
 import os
 import torch
 from models import E1, E2, E3, Decoder
-from utils import save_imgs, load_model_for_eval
+from utils import save_imgs, load_model_for_eval, save_chosen_imgs
 
 
 def eval(args):
@@ -32,8 +32,10 @@ def eval(args):
     if not os.path.exists(args.out) and args.out != "":
         os.mkdir(args.out)
 
-    save_imgs(args, e1, e2, e3, decoder, _iter, True, 10)
-    save_imgs(args, e1, e2, e3, decoder, _iter, False, 10)
+    save_chosen_imgs(args, e1, e2, e3, decoder, _iter, [0,4,6,13,27], [2,4,9,23,
+                                                                25], True)
+    save_chosen_imgs(args, e1, e2, e3, decoder, _iter, [0,4,6,13,27], [2,4,9,23,
+                                                                25], False)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
