@@ -175,8 +175,8 @@ def save_stripped_imgs(args, e1, e2, e3, decoder, iters, A=True):
                           normalize=True, nrow=args.num_display)
 
 
-def interpolate(args, e1, e2, e3, decoder, imgA1, imgA2, imgB1, imgB2,
-                content_img):
+def interpolate_fixed_common(args, e1, e2, e3, decoder, imgA1, imgA2, imgB1,
+                          imgB2, content_img):
     test_domA, test_domB = get_test_imgs(args)
     exps = []
     common = e1(test_domB[content_img].unsqueeze(0))
@@ -213,7 +213,91 @@ def interpolate(args, e1, e2, e3, decoder, imgA1, imgA2, imgB1, imgB2,
         exps = torch.cat(exps, 0)
 
     vutils.save_image(exps,
-                      '%s/interpolation.png' % (args.out),
+                      '%s/interpolation_fixed_C.png' % (args.out),
+                      normalize=True, nrow=args.num_display + 1)
+
+
+def interpolate_fixed_A(args, e1, e2, e3, decoder, imgC1, imgC2, imgB1,
+                          imgB2, imgA):
+    test_domA, test_domB = get_test_imgs(args)
+    exps = []
+    c1 = e1(test_domB[imgC1].unsqueeze(0))
+    c2 = e1(test_domB[imgC2].unsqueeze(0))
+    a = e2(test_domA[imgA].unsqueeze(0))
+    b1 = e3(test_domB[imgB1].unsqueeze(0))
+    b2 = e3(test_domB[imgB2].unsqueeze(0))
+    with torch.no_grad():
+        filler = test_domB[0].unsqueeze(0).clone()
+        exps.append(filler.fill_(0))
+        exps.append(test_domB[imgC1].unsqueeze(0))
+        for i in range(args.num_display - 2):
+            exps.append(filler.fill_(0))
+        exps.append(test_domB[imgC2].unsqueeze(0))
+
+        for i in range(args.num_display):
+            if i == 0:
+                exps.append(test_domB[imgB1].unsqueeze(0))
+            elif i == args.num_display - 1:
+                exps.append(test_domB[imgB2].unsqueeze(0))
+            else:
+                exps.append(filler.fill_(0))
+
+            for j in range(args.num_display):
+                cur_common = (float(j) / (args.num_display - 1)) * c2 + \
+                            (1 - float(j) / (args.num_display - 1)) * c1
+                cur_sep_B = (float(i) / (args.num_display - 1)) * b2 + \
+                            (1 - float(i) / (args.num_display - 1)) * b1
+                encoding = torch.cat([cur_common, a, cur_sep_B], dim=1)
+                decoding = decoder(encoding)
+                exps.append(decoding)
+
+    with torch.no_grad():
+        exps = torch.cat(exps, 0)
+
+    vutils.save_image(exps,
+                      '%s/interpolation_fixed_A.png' % (args.out),
+                      normalize=True, nrow=args.num_display + 1)
+
+
+def interpolate_fixed_B(args, e1, e2, e3, decoder, imgC1, imgC2, imgA1,
+                          imgA2, imgB):
+    test_domA, test_domB = get_test_imgs(args)
+    exps = []
+    c1 = e1(test_domB[imgC1].unsqueeze(0))
+    c2 = e1(test_domB[imgC2].unsqueeze(0))
+    a1 = e2(test_domA[imgA1].unsqueeze(0))
+    a2 = e2(test_domA[imgA2].unsqueeze(0))
+    b = e3(test_domB[imgB].unsqueeze(0))
+    with torch.no_grad():
+        filler = test_domB[0].unsqueeze(0).clone()
+        exps.append(filler.fill_(0))
+        exps.append(test_domB[imgC1].unsqueeze(0))
+        for i in range(args.num_display - 2):
+            exps.append(filler.fill_(0))
+        exps.append(test_domB[imgC2].unsqueeze(0))
+
+        for i in range(args.num_display):
+            if i == 0:
+                exps.append(test_domA[imgA1].unsqueeze(0))
+            elif i == args.num_display - 1:
+                exps.append(test_domA[imgA2].unsqueeze(0))
+            else:
+                exps.append(filler.fill_(0))
+
+            for j in range(args.num_display):
+                cur_common = (float(j) / (args.num_display - 1)) * c2 + \
+                            (1 - float(j) / (args.num_display - 1)) * c1
+                cur_sep_A = (float(i) / (args.num_display - 1)) * a2 + \
+                            (1 - float(i) / (args.num_display - 1)) * a1
+                encoding = torch.cat([cur_common, cur_sep_A, b], dim=1)
+                decoding = decoder(encoding)
+                exps.append(decoding)
+
+    with torch.no_grad():
+        exps = torch.cat(exps, 0)
+
+    vutils.save_image(exps,
+                      '%s/interpolation_fixed_B.png' % (args.out),
                       normalize=True, nrow=args.num_display + 1)
 
 def get_test_imgs(args):
