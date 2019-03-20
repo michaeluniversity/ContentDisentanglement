@@ -300,6 +300,38 @@ def interpolate_fixed_B(args, e1, e2, e3, decoder, imgC1, imgC2, imgA1,
                       '%s/interpolation_fixed_B.png' % (args.out),
                       normalize=True, nrow=args.num_display + 1)
 
+
+def output_images(args, e1, e2, e3, decoder):
+    test_domA, test_domB = get_test_imgs(args)
+
+    if not os.path.exists(args.out + "/AtoB") and args.out != "":
+        os.mkdir(args.out + "/AtoB")
+        os.mkdir(args.out + "/BtoA")
+
+    for i in range(len(test_domA)):
+        for j in range(len(test_domB)):
+            a = test_domA[i].unsqueeze(0)
+            b = test_domB[j].unsqueeze(0)
+            a_common = e1(a)
+            b_common = e1(b)
+            a_sep = e2(a)
+            b_sep = e3(b)
+            zero = torch.full(a_sep.size(), 0).cuda()
+
+            AtoB_enc = torch.cat([a_common, zero, b_sep], dim=1)
+            BtoA_enc = torch.cat([b_common, a_sep, zero], dim=1)
+
+            AtoB = decoder(AtoB_enc)
+            BtoA = decoder(BtoA_enc)
+
+            vutils.save_image([AtoB],
+                              '%s/AtoB/%d_%d.png' % (args.out, i, j),
+                              normalize=True, nrow=1)
+            vutils.save_image([BtoA],
+                              '%s/BtoA/%d_%d.png' % (args.out, i, j),
+                              normalize=True, nrow=1)
+
+
 def get_test_imgs(args):
     comp_transform = transforms.Compose([
         transforms.CenterCrop(args.crop),

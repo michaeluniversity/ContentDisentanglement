@@ -3,7 +3,7 @@ import os
 import torch
 from models import E1, E2, E3, Decoder
 from utils import save_imgs, load_model_for_eval, save_chosen_imgs, \
-    interpolate_fixed_common, interpolate_fixed_A, interpolate_fixed_B
+    interpolate_fixed_common, interpolate_fixed_A, interpolate_fixed_B, output_images
 
 
 def eval(args):
@@ -39,9 +39,10 @@ def eval(args):
     #                                                             25], True)
     # save_chosen_imgs(args, e1, e2, e3, decoder, _iter, [0,4,6,13,27], [2,4,9,23,
     #                                                             25], False)
-    interpolate_fixed_common(args, e1, e2, e3, decoder, 35, 27, 4, 45, 34)
-    interpolate_fixed_A(args, e1, e2, e3, decoder, 34, 8, 4, 45, 35)
-    interpolate_fixed_B(args, e1, e2, e3, decoder, 34, 8, 35, 27, 45)
+    # interpolate_fixed_common(args, e1, e2, e3, decoder, 35, 27, 4, 45, 34)
+    # interpolate_fixed_A(args, e1, e2, e3, decoder, 34, 8, 4, 45, 35)
+    # interpolate_fixed_B(args, e1, e2, e3, decoder, 34, 8, 35, 27, 45)
+    output_images(args, e1, e2, e3, decoder)
 
 
 if __name__=='__main__':
