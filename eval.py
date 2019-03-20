@@ -22,7 +22,7 @@ def eval(args):
 
     if args.load != '':
         save_file = os.path.join(args.load, 'checkpoint')
-        _iter = load_model_for_eval(save_file, e1, e2, e3, decoder)
+        _iter = load_model_for_eval(save_file, e1, e3, e2, decoder)
 
     e1 = e1.eval()
     e2 = e2.eval()
@@ -32,11 +32,12 @@ def eval(args):
     if not os.path.exists(args.out) and args.out != "":
         os.mkdir(args.out)
 
-    save_imgs(args, e1, e2, e3, decoder, _iter)
+    save_imgs(args, e1, e2, e3, decoder, _iter, True, 10)
+    save_imgs(args, e1, e2, e3, decoder, _iter, False, 10)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataroot', default='')
+    parser.add_argument('--root', default='')
     parser.add_argument('--load', default='')
     parser.add_argument('--out', default='')
     parser.add_argument('--resize', type=int, default=128)
