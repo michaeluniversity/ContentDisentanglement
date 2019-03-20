@@ -86,6 +86,12 @@ def train(args):
         imgdiscB_optimizer = optim.Adam(imgdiscB_params, lr=args.disclr,
                                     betas=(0.5, 0.999))
 
+    if args.imgdisc == 0:
+        domA_disc = None
+        domB_disc = None
+        imgdiscA_optimizer = None
+        imgdiscB_optimizer = None
+
     if args.load != '':
         save_file = os.path.join(args.load, 'checkpoint')
         _iter = load_model(save_file, e1, e2, e3, decoder, ae_optimizer, disc,
@@ -137,42 +143,43 @@ def train(args):
             A_decoding = decoder(A_encoding)
             B_decoding = decoder(B_encoding)
 
-            A_common_decoding = decoder(torch.cat([A_common, zero_encoding,
-                                                   B_separate_B], dim=1))
-            B_common_decoding = decoder(torch.cat([B_common, zero_encoding,
-                                                   B_separate_B], dim=1))
-            A_common_separate_A = e2(A_common_decoding)
-            A_common_separate_B = e3(A_common_decoding)
-            B_common_separate_A = e2(B_common_decoding)
-            B_common_separate_B = e3(B_common_decoding)
+            # A_common_decoding = decoder(torch.cat([A_common, zero_encoding,
+            #                                        B_separate_B], dim=1))
+            # B_common_decoding = decoder(torch.cat([B_common, zero_encoding,
+            #                                        B_separate_B], dim=1))
+            # A_common_separate_A = e2(A_common_decoding)
+            # A_common_separate_B = e3(A_common_decoding)
+            # B_common_separate_A = e2(B_common_decoding)
+            # B_common_separate_B = e3(B_common_decoding)
 
             A_reconstruction_loss = l1(A_decoding, domA_img)
             B_reconstruction_loss = l1(B_decoding, domB_img)
             A_separate_B_loss = mse(A_separate_B, zero_encoding)
             B_separate_A_loss = mse(B_separate_A, zero_encoding)
-            A_common_separates_loss = mse(A_common_separate_A, zero_encoding) + \
-                                      mse(A_common_separate_B, zero_encoding)
-            B_common_separates_loss = mse(B_common_separate_A, zero_encoding) + \
-                                      mse(B_common_separate_B, zero_encoding)
+            # A_common_separates_loss = mse(A_common_separate_A, zero_encoding) + \
+            #                           mse(A_common_separate_B, zero_encoding)
+            # B_common_separates_loss = mse(B_common_separate_A, zero_encoding) + \
+            #                           mse(B_common_separate_B, zero_encoding)
 
             logger.add_value('A_recon', A_reconstruction_loss)
             logger.add_value('B_recon', B_reconstruction_loss)
             logger.add_value('A_sep_B', A_separate_B_loss)
             logger.add_value('B_sep_A', B_separate_A_loss)
-            logger.add_value('A_common_sep', A_common_separates_loss)
-            logger.add_value('B_common_sep', B_common_separates_loss)
+            # logger.add_value('A_common_sep', A_common_separates_loss)
+            # logger.add_value('B_common_sep', B_common_separates_loss)
 
             loss = A_reconstruction_loss + B_reconstruction_loss + \
                    args.zeroweight * (A_separate_B_loss +
-                                      B_separate_A_loss +
-                                      A_common_separates_loss +
-                                      B_common_separates_loss)
+                                      B_separate_A_loss) #+
+                                      # A_common_separates_loss +
+                                      # B_common_separates_loss)
 
             if args.discweight > 0:
                 preds_A = disc(A_common)
                 preds_B = disc(B_common)
                 distribution_adverserial_loss = args.discweight *\
-                                                (bce(preds_A, B_label) + bce(preds_B, B_label))
+                                                (bce(preds_A, B_label) +
+                                                 bce(preds_B, A_label))
                 logger.add_value('distribution_adverserial', distribution_adverserial_loss)
                 loss += distribution_adverserial_loss
 
@@ -319,7 +326,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_display', type=int, default=12)
     parser.add_argument('--zeroweight', type=float, default=1.0)
     parser.add_argument('--reconweight', type=float, default=0.01)
-    parser.add_argument('--imgdisc', type=float, default=0.001)
+    parser.add_argument('--imgdisc', type=float, default=0)#0.001)
 
     args = parser.parse_args()
 
