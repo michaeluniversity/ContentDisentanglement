@@ -175,33 +175,46 @@ def save_stripped_imgs(args, e1, e2, e3, decoder, iters, A=True):
                           normalize=True, nrow=args.num_display)
 
 
-def interpolate(args, e1, e2, decoder):
+def interpolate(args, e1, e2, e3, decoder, imgA1, imgA2, imgB1, imgB2,
+                content_img):
     test_domA, test_domB = get_test_imgs(args)
     exps = []
-    _inter_size = 5
+    common = e1(test_domB[content_img].unsqueeze(0))
+    a1 = e2(test_domA[imgA1].unsqueeze(0))
+    a2 = e2(test_domA[imgA2].unsqueeze(0))
+    b1 = e3(test_domB[imgB1].unsqueeze(0))
+    b2 = e3(test_domB[imgB2].unsqueeze(0))
     with torch.no_grad():
-        for i in range(5):
-            b_img = test_domB[i].unsqueeze(0)
-            common_B = e1(b_img)
-            for j in range(args.num_display):
-                with torch.no_grad():
-                    exps.append(test_domA[j].unsqueeze(0))
-                    # vutils.save_image(test_domA[j], '%s/realA_%03d.png' % (args.save, j), normalize=True)
-                    separate_A_1 = e2(test_domA[j].unsqueeze(0))
-                    separate_A_2 = e2(test_domA[j].unsqueeze(0))
-                    for k in range(_inter_size + 1):
-                        cur_sep = float(j) / _inter_size * separate_A_2 + (1 - (float(k) / _inter_size)) * separate_A_1
-                        A_encoding = torch.cat([common_B, cur_sep], dim=1)
-                        A_decoding = decoder(A_encoding)
-                        # vutils.save_image(A_decoding, '%s/me_%03d_%03d.png' % (args.save, j, k), normalize=True)
-                        exps.append(A_decoding)
-                    exps.append(test_domA[i].unsqueeze(0))
-                    # vutils.save_image(test_domA[i], '%s/realA_%03d.png' % (args.save, i), normalize=True)
-            exps = torch.cat(exps, 0)
-            vutils.save_image(exps,
-                              '%s/interpolation.png' % (args.save),
-                              normalize=True, nrow=_inter_size + 3)
+        filler = test_domB[0].unsqueeze(0).clone()
+        exps.append(filler.fill_(0))
+        exps.append(test_domA[imgA1].unsqueeze(0))
+        for i in range(args.num_display - 2):
+            exps.append(filler.fill_(0))
+        exps.append(test_domA[imgA2].unsqueeze(0))
 
+        for i in range(args.num_display):
+            if i == 0:
+                exps.append(test_domB[imgB1].unsqueeze(0))
+            elif i == args.num_display - 1:
+                exps.append(test_domB[imgB2].unsqueeze(0))
+            else:
+                exps.append(filler.fill_(0))
+
+            for j in range(args.num_display):
+                cur_sep_A = (float(j) / (args.num_display - 1)) * a2 + \
+                            (1 - float(j) / (args.num_display - 1)) * a1
+                cur_sep_B = (float(i) / (args.num_display - 1)) * b2 + \
+                            (1 - float(i) / (args.num_display - 1)) * b1
+                encoding = torch.cat([common, cur_sep_A, cur_sep_B], dim=1)
+                decoding = decoder(encoding)
+                exps.append(decoding)
+
+    with torch.no_grad():
+        exps = torch.cat(exps, 0)
+
+    vutils.save_image(exps,
+                      '%s/interpolation.png' % (args.out),
+                      normalize=True, nrow=args.num_display + 1)
 
 def get_test_imgs(args):
     comp_transform = transforms.Compose([
