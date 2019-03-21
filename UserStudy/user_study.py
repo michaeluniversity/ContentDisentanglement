@@ -136,6 +136,10 @@ class GUI():
         self.button_answer(image_set,2,5)).grid(row=8, column=3)
 
     def progress_bar_timer(self, num):
+        if num == 20:
+            self.answered_q = [False, False, False]
+            self.root.after_cancel(self.after)
+            self.show_next_image_sets()
         self.bar['value'] = (num * 10.0) / 2
         self.after = self.root.after(1000, lambda: self.progress_bar_timer(num+1))
 
