@@ -67,6 +67,12 @@ class GUI():
 
         if self.curr_image_set == self.num_of_images - 1:
             txt_file = open("res.txt", "w")
+
+            for i in range(3): # prevent division by zero
+                for j in range(3):
+                    if self.num_answers[i][j] == 0:
+                        self.num_answers[i][j] = -1
+
             txt_file.write("%.5f,%.5f,%.5f\n%.5f,%.5f,%.5f" %
                            (self.answers[0][0]/float(self.num_answers[0][0]),
                             self.answers[0][1] / float(self.num_answers[0][1]),
@@ -142,8 +148,9 @@ class GUI():
             self.answered_q = [False, False, False]
             self.root.after_cancel(self.after)
             self.show_next_image_sets()
-        self.bar['value'] = (num * 10.0) / 2
-        self.after = self.root.after(1000, lambda: self.progress_bar_timer(num+1))
+        else:
+            self.bar['value'] = (num * 10.0) / 2
+            self.after = self.root.after(1000, lambda: self.progress_bar_timer(num+1))
 
     def button_answer(self, image_set, q, a):
         if self.answered_q[q] == False:
