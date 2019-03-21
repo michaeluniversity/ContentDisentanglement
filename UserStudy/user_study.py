@@ -68,7 +68,7 @@ class GUI():
         if self.curr_image_set == self.num_of_images - 1:
             txt_file = open("res.txt", "w")
 
-            for i in range(3): # prevent division by zero
+            for i in range(2): # prevent division by zero
                 for j in range(3):
                     if self.num_answers[i][j] == 0:
                         self.num_answers[i][j] = -1
