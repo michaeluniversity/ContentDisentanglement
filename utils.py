@@ -3,7 +3,7 @@ import os
 import torch
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
-
+from random import shuffle
 import torch.utils.data as data
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
@@ -330,6 +330,37 @@ def output_images(args, e1, e2, e3, decoder):
             vutils.save_image([BtoA],
                               '%s/BtoA/%d_%d.png' % (args.out, i, j),
                               normalize=True, nrow=1)
+
+
+def output_for_user_study(args, e1, e2, e3, decoder):
+    test_domA, test_domB = get_test_imgs(args)
+
+    if not os.path.exists(args.out + "/1") and args.out != "":
+        os.mkdir(args.out + "/1")
+
+    idx_a = [x for x in range(len(test_domA))]
+    idx_b = [x for x in range(len(test_domB))]
+
+    shuffle(idx_a)
+    shuffle(idx_b)
+
+    for i in range(20):
+        a = test_domA[idx_a[i]].unsqueeze(0)
+        b = test_domB[idx_b[i]].unsqueeze(0)
+        a_c = e1(a)
+        b_s = e3(b)
+        zero = torch.full(b_s.size(), 0).cuda()
+        enc = torch.cat([a_c, zero, b_s], dim=1)
+        dec = decoder(enc)
+
+        os.mkdir(args.out + ("/1/%d" % i))
+        vutils.save_image([a],'%s/1/%d/a.png' % (args.out, i),
+                          normalize=True, nrow=1)
+        vutils.save_image([b],'%s/1/%d/b.png' % (args.out, i),
+                          normalize=True, nrow=1)
+        vutils.save_image([dec],'%s/1/%d/ab.png' % (args.out, i),
+                          normalize=True, nrow=1)
+
 
 
 def get_test_imgs(args):
