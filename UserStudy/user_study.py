@@ -35,6 +35,7 @@ class GUI():
         self.frame = ttk.Frame()
         self.frame.grid(column=0, row=0)
         self.answers = [[0,0,0],[0,0,0]]
+        self.num_answers = [[0,0,0],[0,0,0]]
         self.answered_q = [False, False, False]
 
         lbl = Label(self.frame, text=("\n\nYou are about to be presented %d sets of "
@@ -66,12 +67,13 @@ class GUI():
 
         if self.curr_image_set == self.num_of_images - 1:
             txt_file = open("res.txt", "w")
-            txt_file.write("%d,%d,%d\n%d,%d,%d" % (self.answers[0][0],
-                                                   self.answers[0][1],
-                                                   self.answers[0][2],
-                                                   self.answers[1][0],
-                                                   self.answers[1][1],
-                                                   self.answers[1][2]))
+            txt_file.write("%.5f,%.5f,%.5f\n%.5f,%.5f,%.5f" %
+                           (self.answers[0][0]/float(self.num_answers[0][0]),
+                            self.answers[0][1] / float(self.num_answers[0][1]),
+                            self.answers[0][2] / float(self.num_answers[0][2]),
+                            self.answers[1][0] / float(self.num_answers[1][0]),
+                            self.answers[1][1] / float(self.num_answers[1][1]),
+                            self.answers[1][2] / float(self.num_answers[1][2])))
             txt_file.close()
             self.root.quit()
 
@@ -146,6 +148,7 @@ class GUI():
     def button_answer(self, image_set, q, a):
         if self.answered_q[q] == False:
             self.answers[image_set.model - 1][q] += a
+            self.num_answers[image_set.model - 1][q] += 1
             print(self.answers)
             self.answered_q[q] = True
 
